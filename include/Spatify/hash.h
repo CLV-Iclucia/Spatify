@@ -10,7 +10,7 @@
 #include <functional>
 
 namespace spatify {
-enum Axis {
+enum class Axis {
   X,
   Y,
   Z

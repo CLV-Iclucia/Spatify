@@ -9,6 +9,7 @@
 #include <Spatify/arrays.h>
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 
 namespace spatify {
 template <typename T, int Dim>
@@ -90,7 +91,8 @@ template <typename T>
 class NeighbourSearcher<T, 3> {
   public:
     NeighbourSearcher(int n, int w, int h, int d, const Vector<T, 3>& size)
-      : width(w), height(h), depth(d), spacing(size.x / w, size.y / h, size.z / d) {
+      : width(w), height(h), depth(d),
+        spacing(size.x / w, size.y / h, size.z / d) {
       particle_idx_mapping.resize(n);
       cell_begin_idx.resize(width * height * depth);
       cell_end_idx.resize(width * height * depth);
@@ -109,42 +111,54 @@ class NeighbourSearcher<T, 3> {
       particle_cell_mapping.resize(n);
       for (int i = 0; i < n; i++) {
         particle_idx_mapping[i] = i;
-        particle_cell_mapping[i] =
-            std::floor(particles[i].x / spacing.x) * height + std::floor(
-                particles[i].x / spacing.y);
+        int cell_idx = static_cast<int>(
+          std::floor(particles[i].x / spacing.x) * height * depth +
+          std::floor(particles[i].y / spacing.y) * depth + std::floor(
+              particles[i].z / spacing.z));
+        particle_cell_mapping[i] = cell_idx;
       }
       std::sort(particle_idx_mapping.begin(), particle_idx_mapping.end(),
                 [this](int i, int j) {
                   return particle_cell_mapping[i] < particle_cell_mapping[j];
                 });
       std::ranges::sort(particle_cell_mapping);
+      for (int i = 0; i < cell_begin_idx.size(); i++)
+        cell_begin_idx[i] = cell_end_idx[i] = -1;
       for (int i = 0; i < n; i++) {
-        if (i > 0 && particle_cell_mapping[i - 1] != particle_cell_mapping[i]) {
-          cell_begin_idx[particle_cell_mapping[i]] = i;
-          cell_end_idx[particle_cell_mapping[i - 1]] = i;
-        }
-        if (i < n - 1 && particle_cell_mapping[i + 1] !=
-            particle_cell_mapping[i]) {
-          cell_begin_idx[particle_cell_mapping[i]] = i;
-          cell_end_idx[particle_cell_mapping[i + 1]] = i;
-        }
+        int grid_idx = particle_cell_mapping[i];
+        if (i == 0 || particle_cell_mapping[i - 1] != grid_idx)
+          cell_begin_idx[grid_idx] = i;
+        if (i == n - 1 || particle_cell_mapping[i + 1] != grid_idx)
+          cell_end_idx[grid_idx] = i;
       }
     }
     template <typename Func>
-    void forNeighbours(const Vec3d& pos, Real r, Func&& f) {
-      int x_min = std::max(0, std::floor((pos.x - r) / spacing.x));
-      int x_max = std::min(width - 1, std::floor((pos.x + r) / spacing.x));
-      int y_min = std::max(0, std::floor((pos.y - r) / spacing.y));
-      int y_max = std::min(height - 1, std::floor((pos.y + r) / spacing.y));
-      int z_min = std::max(0, std::floor((pos.z - r) / spacing.z));
-      int z_max = std::min(depth - 1, std::floor((pos.z + r) / spacing.z));
+    void forNeighbours(const Vec3d& pos, std::span<Vec3d> positions, Real r,
+                       Func&& f) {
+      int x_min = std::max(
+          0, static_cast<int>(std::floor((pos.x - r) / spacing.x)));
+      int x_max = std::min(width - 1,
+                           static_cast<int>(std::ceil(
+                               (pos.x + r) / spacing.x)));
+      int y_min = std::max(
+          0, static_cast<int>(std::floor((pos.y - r) / spacing.y)));
+      int y_max = std::min(height - 1,
+                           static_cast<int>(std::ceil(
+                               (pos.y + r) / spacing.y)));
+      int z_min = std::max(
+          0, static_cast<int>(std::floor((pos.z - r) / spacing.z)));
+      int z_max = std::min(depth - 1,
+                           static_cast<int>(std::ceil(
+                               (pos.z + r) / spacing.z)));
       for (int i = x_min; i <= x_max; i++) {
         for (int j = y_min; j <= y_max; j++) {
           for (int k = z_min; k <= z_max; k++) {
             int cell_idx = i * height * depth + j * depth + k;
-            assert(cell_begin_idx <= cell_end_idx);
-            for (int l = cell_begin_idx[cell_idx]; l < cell_end_idx[cell_idx]; l++)
-              f(particle_idx_mapping[l]);
+            assert(cell_begin_idx[cell_idx] <= cell_end_idx[cell_idx]);
+            for (int l = cell_begin_idx[cell_idx]; l < cell_end_idx[cell_idx]; l
+                 ++)
+              if (glm::distance(positions[particle_idx_mapping[l]], pos) <= r)
+                f(particle_idx_mapping[l]);
           }
         }
       }

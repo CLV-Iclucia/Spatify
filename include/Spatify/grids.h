@@ -230,25 +230,32 @@ class TGrid<StoredType, T, 3, Offset, Padding> final {
       return Vector<T, 3>(static_cast<T>(Offset::x), static_cast<T>(Offset::y),
                           static_cast<T>(Offset::z));
     }
+    static bool zeroOffsetOnAxis(Axis axis) {
+      if (axis == Axis::X)
+        return Offset::x == static_cast<T>(0);
+      if (axis == Axis::Y)
+        return Offset::y == static_cast<T>(0);
+      if (axis == Axis::Z)
+        return Offset::z == static_cast<T>(0);
+      return false;
+    }
     TGrid() = default;
     explicit TGrid(const Vec3i& size)
-      : m_size(size) {
-    }
-    explicit TGrid(const Vec3i& size, const Vector<T, 3>& grid_spacing,
-                   const vector<StoredType>& data)
-      : m_size(size), m_grid_spacing(grid_spacing), m_data(data) {
-    }
-    explicit TGrid(const Vec3i& size, const Vector<T, 3>& grid_spacing,
-                   vector<StoredType>&& data)
-      : m_size(size), m_grid_spacing(grid_spacing), m_data(std::move(data)) {
+      : m_size(size + Vec3i(zeroOffsetOnAxis(Axis::X),
+                            zeroOffsetOnAxis(Axis::Y),
+                            zeroOffsetOnAxis(Axis::Z))) {
     }
     TGrid(const Vec3i& resolution, const Vector<T, 3>& size,
           const Vector<T, 3>& origin = Vector<Real, 3>(static_cast<T>(0)))
-      : m_size(resolution), m_origin(origin),
+      : m_size(resolution + Vec3i(zeroOffsetOnAxis(Axis::X),
+                                  zeroOffsetOnAxis(Axis::Y),
+                                  zeroOffsetOnAxis(Axis::Z))), m_origin(origin),
         m_grid_spacing(size.x / resolution.x,
                        size.y / resolution.y,
                        size.z / resolution.z),
-        m_data(resolution) {
+        m_data(resolution + Vec3i(zeroOffsetOnAxis(Axis::X),
+                                  zeroOffsetOnAxis(Axis::Y),
+                                  zeroOffsetOnAxis(Axis::Z))) {
     }
 
     const Vector<T, 3>& origin() const { return m_origin; }
@@ -286,6 +293,9 @@ class TGrid<StoredType, T, 3, Offset, Padding> final {
     const Vector<T, 3>& gridSpacing() const { return m_grid_spacing; }
     Vec3i coordToCellIndex(const Vector<T, 3>& coord) const {
       return Vec3i((coord - m_origin) / m_grid_spacing);
+    }
+    Vec3i coordToSampledCellIndex(const Vector<T, 3>& coord) const {
+      return Vec3i((coord - m_origin) / m_grid_spacing - offset());
     }
     Vector<T, 3> indexToCoord(const Vec3i& index) const {
       return (Vector<T, 3>(index) + offset()) * m_grid_spacing + m_origin;
