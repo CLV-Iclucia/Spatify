@@ -17,13 +17,14 @@ enum class Axis {
 };
 
 struct LinearHashXYZ {
+  LinearHashXYZ() = default;
   LinearHashXYZ(int sizex, int sizey, int sizez)
     : sizex(sizex), sizey(sizey), sizez(sizez) {}
   int operator()(int x, int y, int z) const {
     assert(x >= 0 && x < sizex && y >= 0 && y < sizey && z >= 0 && z < sizez);
     return z + y * sizez + x * sizey * sizez;
   }
-  int sizex, sizey, sizez;
+  int sizex{}, sizey{}, sizez{};
 };
 
 template <typename T>

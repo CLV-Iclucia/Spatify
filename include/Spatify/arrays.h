@@ -106,8 +106,7 @@ class GhostArray2D {
 };
 
 template <typename T, int Padding, SpatialHashFunction3D Hash = LinearHashXYZ,
-          PaddingMode =
-              PaddingMode::Around>
+          PaddingMode = PaddingMode::Around>
 class GhostArray3D {
   public:
     GhostArray3D() = default;
