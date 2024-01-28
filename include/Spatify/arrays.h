@@ -225,9 +225,6 @@ class GhostArray3D {
       });
     }
     template <typename Func>
-    void parallelForEachReversed(Func&& func) const {
-    }
-    template <typename Func>
     void parallelForEach(Func&& func) {
       tbb::parallel_for(0, m_width, [&](int i) {
         for (int j = 0; j < m_height; j++)
