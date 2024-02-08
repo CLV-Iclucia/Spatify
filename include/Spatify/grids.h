@@ -272,6 +272,9 @@ class TGrid<StoredType, T, 3, Offset, Padding> final {
     const StoredType& operator()(const Vec3i& index) const {
       return m_data(index);
     }
+    StoredType& operator()(const Vec3i& index) {
+      return m_data(index);
+    }
     StoredType at(int i, int j, int k) const {
       return m_data(i, j, k);
     }

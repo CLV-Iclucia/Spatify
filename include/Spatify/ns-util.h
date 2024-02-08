@@ -111,11 +111,18 @@ class NeighbourSearcher<T, 3> {
       particle_cell_mapping.resize(n);
       for (int i = 0; i < n; i++) {
         particle_idx_mapping[i] = i;
-        int cell_idx = static_cast<int>(
-          std::floor(particles[i].x / spacing.x) * height * depth +
-          std::floor(particles[i].y / spacing.y) * depth + std::floor(
-              particles[i].z / spacing.z));
+        int idx_x = std::floor(particles[i].x / spacing.x);
+        if (idx_x < 0) idx_x = 0;
+        if (idx_x >= width) idx_x = width - 1;
+        int idx_y = std::floor(particles[i].y / spacing.y);
+        if (idx_y < 0) idx_y = 0;
+        if (idx_y >= height) idx_y = height - 1;
+        int idx_z = std::floor(particles[i].z / spacing.z);
+        if (idx_z < 0) idx_z = 0;
+        if (idx_z >= depth) idx_z = depth - 1;
+        int cell_idx = static_cast<int>(idx_x * height * depth + idx_y * depth + idx_z);
         particle_cell_mapping[i] = cell_idx;
+        assert(cell_idx >= 0 && cell_idx < width * height * depth);
       }
       std::sort(particle_idx_mapping.begin(), particle_idx_mapping.end(),
                 [this](int i, int j) {
@@ -155,8 +162,7 @@ class NeighbourSearcher<T, 3> {
           for (int k = z_min; k <= z_max; k++) {
             int cell_idx = i * height * depth + j * depth + k;
             assert(cell_begin_idx[cell_idx] <= cell_end_idx[cell_idx]);
-            for (int l = cell_begin_idx[cell_idx]; l < cell_end_idx[cell_idx]; l
-                 ++)
+            for (int l = cell_begin_idx[cell_idx]; l < cell_end_idx[cell_idx]; l++)
               if (glm::distance(positions[particle_idx_mapping[l]], pos) <= r)
                 f(particle_idx_mapping[l]);
           }
