@@ -456,6 +456,7 @@ class TGrid<StoredType, T, 3, Offset, Padding> final {
       m_data.fill(value, padding_value);
     }
     GhostArray3D<StoredType, Padding>& array() { return m_data; }
+    const GhostArray3D<StoredType, Padding>& array() const { return m_data; }
     virtual ~TGrid() = default;
 
   protected:
