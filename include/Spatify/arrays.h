@@ -71,7 +71,7 @@ class GhostArray2D {
     }
     template <typename Func>
     void parallelForEach(Func&& func) {
-      tbb::parallel_for(0, m_width, [&](int i) {
+      parallel_for(0, m_width, [&](int i) {
         for (int j = 0; j < m_height; j++)
           func(i, j);
       });
@@ -218,7 +218,7 @@ class GhostArray3D {
     }
     template <typename Func>
     void parallelForEach(Func&& func) const {
-      tbb::parallel_for(0, m_width, [&](int i) {
+      parallel_for(0, m_width, [&](int i) {
         for (int j = 0; j < m_height; j++)
           for (int k = 0; k < m_depth; k++)
             func(i, j, k);
@@ -226,7 +226,7 @@ class GhostArray3D {
     }
     template <typename Func>
     void parallelForEach(Func&& func) {
-      tbb::parallel_for(0, m_width, [&](int i) {
+      parallel_for(0, m_width, [&](int i) {
         for (int j = 0; j < m_height; j++)
           for (int k = 0; k < m_depth; k++)
             func(i, j, k);

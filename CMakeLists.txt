@@ -1,5 +1,6 @@
 project(Spatify LANGUAGES CXX)
-add_library(Spatify INTERFACE)
+add_library(Spatify INTERFACE
+        tests/collision-test.cc)
 # if can find tbb, link tbb to Spatify
 find_package(TBB)
 if(TBB_FOUND)
@@ -11,3 +12,7 @@ target_include_directories(Spatify INTERFACE
         $<INSTALL_INTERFACE:include>
 )
 target_include_directories(Spatify INTERFACE ${EXTERNAL_PATH}/glm)
+
+# Add test
+add_executable(collision-test tests/collision-test.cc)
+target_link_libraries(collision-test Spatify)
