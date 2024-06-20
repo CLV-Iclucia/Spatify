@@ -26,13 +26,25 @@ inline int lcp(uint64_t a, uint64_t b) {
   return clz(a ^ b);
 }
 
+template <typename T>
+concept BvhPrimitive = requires(T t) {
+  { t.bbox() } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
+};
+
+template <typename T>
+concept BvhPrimitiveAccessor = requires(T t, int idx) {
+  requires BvhPrimitive<typename T::PrimitiveType>;
+  { t(idx) } -> std::convertible_to<typename T::PrimitiveType>;
+  { t.size() } -> std::convertible_to<int>;
+};
+
 template<typename T>
 class LBVH {
  public:
   LBVH() {}
   ~LBVH() = default;
-  template<typename Derived>
-  void runSpatialQuery(SpatialQuery<Derived>& Q) const {
+  template<SpatialQuery Query>
+  void runSpatialQuery(Query&& Q) const {
     std::array<int, 64> stack{};
     int top{};
     int nodeIdx = 0;
@@ -102,9 +114,9 @@ class LBVH {
   }
   int nPrs;
   std::vector<BBox<Real, 3>> bbox{};
-  template<typename VirtualBBoxArray>
-  void update(int num_primitives, const VirtualBBoxArray &bbox_array) {
-    nPrs = num_primitives;
+  template <BvhPrimitiveAccessor Accessor>
+  void update(Accessor accessor) {
+    nPrs = accessor.size();
     mortons.resize(2 * nPrs - 1);
     mortons_copy.resize(2 * nPrs - 1);
     bbox.resize(2 * nPrs - 1);
@@ -114,7 +126,7 @@ class LBVH {
     idx.resize(nPrs);
     // first compute the bounding box of the scene in parallel
     for (int i = 0; i < nPrs; i++) {
-      bbox[i] = bbox_array(i);
+      bbox[i] = accessor(i).bbox();
       scene_bound.expand(bbox[i]);
     }
     parallel_for(0,
@@ -160,9 +172,9 @@ class LBVH {
                  });
     parallel_for(0,
                  nPrs,
-                 [this, &bbox_array](int i) {
+                 [this, &accessor](int i) {
                    int node_idx = nPrs + i - 1;
-                   bbox[node_idx] = bbox_array(idx[i]);
+                   bbox[node_idx] = accessor(idx[i]).bbox();
                  });
     std::vector<std::atomic<bool>> processed(nPrs - 1);
     parallel_for(0,
@@ -179,57 +191,57 @@ class LBVH {
                    }
                  });
   }
-  template<typename Derived>
-  void runSelfSpatialQuery(const SpatialPairQuery<Derived> &Q) {
-    std::array<uint64_t, 64> stack{};
-    int top{};
-    uint64_t pair = 0;
-    int a = 0, b = 0;
-    while (true) {
-      if (isLeaf(a) && isLeaf(b)) {
-        Q.query(idx[a], idx[b]);
-        if (!top) return;
-        pair = stack[--top];
-        a = static_cast<int>(pair >> 32);
-        b = static_cast<int>(pair & 0xFFFFFFFF);
-        continue;
-      }
-      bool go_left = true, go_right = true;
-      if (!isLeaf(a)) {
-        if (!bbox[lch[a]].overlap(bbox[b]))
-          go_left = false;
-        if (!bbox[rch[a]].overlap(bbox[b]))
-          go_right = false;
-        if (go_left && go_right) {
-          stack[top++] = (static_cast<uint64_t>(rch[a]) << 32) | b;
-          a = lch[a];
-        } else if (go_left) a = lch[a];
-        else if (go_right) a = rch[a];
-        else {
-          if (!top) return;
-          pair = stack[--top];
-          a = static_cast<int>(pair >> 32);
-          b = static_cast<int>(pair & 0xFFFFFFFF);
-        }
-      } else if (!isLeaf(b)) {
-        if (!bbox[a].overlap(bbox[lch[b]]))
-          go_left = false;
-        if (!bbox[a].overlap(bbox[rch[b]]))
-          go_right = false;
-        if (go_left && go_right) {
-          stack[top++] = (static_cast<uint64_t>(a) << 32) | rch[b];
-          b = lch[b];
-        } else if (go_left) b = lch[b];
-        else if (go_right) b = rch[b];
-        else {
-          if (!top) return;
-          pair = stack[--top];
-          a = static_cast<int>(pair >> 32);
-          b = static_cast<int>(pair & 0xFFFFFFFF);
-        }
-      }
-    }
-  }
+//  template<typename Derived>
+//  void runSelfSpatialQuery(const SpatialPairQuery<Derived> &Q) {
+//    std::array<uint64_t, 64> stack{};
+//    int top{};
+//    uint64_t pair = 0;
+//    int a = 0, b = 0;
+//    while (true) {
+//      if (isLeaf(a) && isLeaf(b)) {
+//        Q.query(idx[a], idx[b]);
+//        if (!top) return;
+//        pair = stack[--top];
+//        a = static_cast<int>(pair >> 32);
+//        b = static_cast<int>(pair & 0xFFFFFFFF);
+//        continue;
+//      }
+//      bool go_left = true, go_right = true;
+//      if (!isLeaf(a)) {
+//        if (!bbox[lch[a]].overlap(bbox[b]))
+//          go_left = false;
+//        if (!bbox[rch[a]].overlap(bbox[b]))
+//          go_right = false;
+//        if (go_left && go_right) {
+//          stack[top++] = (static_cast<uint64_t>(rch[a]) << 32) | b;
+//          a = lch[a];
+//        } else if (go_left) a = lch[a];
+//        else if (go_right) a = rch[a];
+//        else {
+//          if (!top) return;
+//          pair = stack[--top];
+//          a = static_cast<int>(pair >> 32);
+//          b = static_cast<int>(pair & 0xFFFFFFFF);
+//        }
+//      } else if (!isLeaf(b)) {
+//        if (!bbox[a].overlap(bbox[lch[b]]))
+//          go_left = false;
+//        if (!bbox[a].overlap(bbox[rch[b]]))
+//          go_right = false;
+//        if (go_left && go_right) {
+//          stack[top++] = (static_cast<uint64_t>(a) << 32) | rch[b];
+//          b = lch[b];
+//        } else if (go_left) b = lch[b];
+//        else if (go_right) b = rch[b];
+//        else {
+//          if (!top) return;
+//          pair = stack[--top];
+//          a = static_cast<int>(pair >> 32);
+//          b = static_cast<int>(pair & 0xFFFFFFFF);
+//        }
+//      }
+//    }
+//  }
  private:
   std::vector<uint64_t> mortons, mortons_copy;
   std::vector<int> fa;

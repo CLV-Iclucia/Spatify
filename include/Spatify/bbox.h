@@ -1,22 +1,22 @@
-#ifndef SPATIFY_INCLUDE_SPATIFY_BBox_H
-#define SPATIFY_INCLUDE_SPATIFY_BBox_H
+#ifndef SPATIFY_INCLUDE_SPATIFY_BBOX_H
+#define SPATIFY_INCLUDE_SPATIFY_BBOX_H
 #include <Spatify/types.h>
 namespace spatify {
-template <typename T, int Dim>
+template<typename T, int Dim>
 struct BBox {
-  Vector<T, Dim> lo{1e9};
-  Vector<T, Dim> hi{-1e9};
+  Vector<T, Dim> lo{std::numeric_limits<T>::max()};
+  Vector<T, Dim> hi{std::numeric_limits<T>::min()};
   BBox() = default;
   BBox(const Vector<T, Dim> &lo, const Vector<T, Dim> &hi) : lo(lo), hi(hi) {
   }
   BBox merge(const BBox &other) const {
     return {cwiseMin<T, Dim>(lo, other.lo), cwiseMax<T, Dim>(hi, other.hi)};
   }
-  BBox& expand(const Vector<Real, 3>& p) {
+  BBox &expand(const Vector<T, 3> &p) {
     lo = cwiseMin<T, Dim>(lo, p);
     hi = cwiseMax<T, Dim>(hi, p);
   }
-  BBox& expand(const BBox& other) {
+  BBox &expand(const BBox &other) {
     lo = cwiseMin<T, Dim>(lo, other.lo);
     hi = cwiseMax<T, Dim>(hi, other.hi);
   }
@@ -36,6 +36,9 @@ struct BBox {
   Vector<T, Dim> centre() const {
     return (lo + hi) * static_cast<T>(0.5);
   }
+  Vector<T, Dim> extent() const {
+    return hi - lo;
+  }
 };
 }
-#endif //COLLISION_INCLUDE_COLLISION_CPU_LBVH_H
+#endif //SPATIFY_INCLUDE_SPATIFY_BBOX_H
