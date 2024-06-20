@@ -20,5 +20,6 @@ add_executable(collision-test tests/spatial-hash.cc
         include/Spatify/octree.h
         include/Spatify/platform.h
         tests/octree-test.cc
+        include/Spatify/properties.h
 )
 target_link_libraries(collision-test Spatify)

@@ -9,6 +9,11 @@ struct BBox {
   BBox() = default;
   BBox(const Vector<T, Dim> &lo, const Vector<T, Dim> &hi) : lo(lo), hi(hi) {
   }
+  BBox& operator=(const BBox &other) {
+    lo = other.lo;
+    hi = other.hi;
+    return *this;
+  }
   BBox merge(const BBox &other) const {
     return {cwiseMin<T, Dim>(lo, other.lo), cwiseMax<T, Dim>(hi, other.hi)};
   }

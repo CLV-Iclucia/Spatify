@@ -6,14 +6,12 @@
 #define SIMCRAFT_SPATIFY_INCLUDE_SPATIFY_LBVH_H_
 #include <array>
 #include <vector>
+#include <Spatify/platform.h>
 #include <Spatify/spatial-query.h>
 #include <Spatify/parallel.h>
 #include <concepts>
 #include <atomic>
 namespace spatify {
-inline int clz(uint64_t x) {
-  return __builtin_clzll(x);
-}
 inline unsigned int expandBits(unsigned int v) {
   v = (v * 0x00010001u) & 0xFF0000FFu;
   v = (v * 0x00000101u) & 0x0F00F00Fu;
@@ -23,7 +21,7 @@ inline unsigned int expandBits(unsigned int v) {
 }
 
 inline int lcp(uint64_t a, uint64_t b) {
-  return clz(a ^ b);
+  return countLeadingZeros64Bit(a ^ b);
 }
 
 template <typename T>
