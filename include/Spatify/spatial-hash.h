@@ -8,20 +8,26 @@
 #include <Spatify/arrays.h>
 #include <Spatify/mortons.h>
 namespace spatify {
+
+struct NeighbouringSphere {
+  Real radius;
+  Real x, y, z;
+};
+
 template<SpatialHashablePrimitive Primitive>
 class SpatialHash {
  public:
   using CoordType = typename Primitive::CoordType;
 
   template<SpatialHashablePrimitiveAccessor Accessor>
-  requires std::convertible_to<typename Accessor::PrimitiveType, Primitive>
-  void build(const Accessor &accessor, Real spacing) {
-    m_primitive_indices.resize(accessor.size());
+  requires std::convertible_to<typename Accessor::value_type, Primitive>
+  void build(const Accessor &primitives, Real spacing) {
+    m_primitive_indices.resize(primitives.size());
     h = spacing;
-    auto num_primitives = accessor.size();
+    auto num_primitives = primitives.size();
     BBox<CoordType, 3> scene_bound{};
     for (int i = 0; i < num_primitives; i++)
-      scene_bound = scene_bound.merge(accessor.primitive(i).bbox());
+      scene_bound = scene_bound.merge(primitives[i].bbox());
     int x_res = static_cast<int>(std::ceil(scene_bound.extent().x / h));
     int y_res = static_cast<int>(std::ceil(scene_bound.extent().y / h));
     int z_res = static_cast<int>(std::ceil(scene_bound.extent().z / h));
@@ -29,12 +35,12 @@ class SpatialHash {
     m_resolution = {x_res, y_res, z_res};
     std::vector<std::pair<uint64_t, int>> m_grid_id_pair{};
     for (int i = 0; i < num_primitives; i++) {
-      auto bbox = accessor.primitive(i).bbox();
-      auto ox = static_cast<int>(bbox.lo.x / h) * h;
-      auto oy = static_cast<int>(bbox.lo.y / h) * h;
-      auto oz = static_cast<int>(bbox.lo.z / h) * h;
-      for (auto it = accessor.primitive(i).rasterize({h, ox, oy, oz}); !it.end(); ++it) {
-        uint64_t code = encodeMorton21bit(it.x, it.y, it.z);
+      auto bbox = primitives[i].bbox();
+      auto ox = static_cast<int>(std::floor(bbox.lo.x / h));
+      auto oy = static_cast<int>(std::floor(bbox.lo.y / h));
+      auto oz = static_cast<int>(std::floor(bbox.lo.z / h));
+      for (auto it = primitives[i].pruningIterator({0.0, 0.0, 0.0, h}); !it.end(); ++it) {
+        uint64_t code = encodeMorton21bit(it.xOffset() + ox, it.yOffset() + oy, it.zOffset() + oz);
         m_grid_id_pair.push_back({code, i});
       }
     }
@@ -54,7 +60,8 @@ class SpatialHash {
     }
   }
   template<typename Func>
-  void forNeighbouringPrimitives(Real x, Real y, Real z, Real radius, Func &&func) {
+  void forNeighbouringPrimitives(const NeighbouringSphere& sphere, Func &&func) {
+    auto [radius, x, y, z] = sphere;
     int x_min = static_cast<int>(std::floor((x - radius) / h));
     int x_max = static_cast<int>(std::ceil((x + radius) / h));
     int y_min = static_cast<int>(std::floor((y - radius) / h));
@@ -78,7 +85,7 @@ class SpatialHash {
     int begin;
     int end;
   };
-  int index(int x, int y, int z) const {
+  [[nodiscard]] int index(int x, int y, int z) const {
     return x + y * m_resolution.x + z * m_resolution.x * m_resolution.y;
   }
   CoordType h{};

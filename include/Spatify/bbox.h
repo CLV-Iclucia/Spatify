@@ -2,6 +2,23 @@
 #define SPATIFY_INCLUDE_SPATIFY_BBOX_H
 #include <Spatify/types.h>
 namespace spatify {
+
+template <typename T, int Dim>
+Vector<T, Dim> cwiseMin(const Vector<T, Dim> &a, const Vector<T, Dim> &b) {
+  Vector<T, Dim> result;
+  for (int i = 0; i < Dim; i++)
+    result[i] = std::min(a[i], b[i]);
+  return result;
+}
+
+template <typename T, int Dim>
+Vector<T, Dim> cwiseMax(const Vector<T, Dim> &a, const Vector<T, Dim> &b) {
+  Vector<T, Dim> result;
+  for (int i = 0; i < Dim; i++)
+    result[i] = std::max(a[i], b[i]);
+  return result;
+}
+
 template<typename T, int Dim>
 struct BBox {
   Vector<T, Dim> lo{std::numeric_limits<T>::max()};

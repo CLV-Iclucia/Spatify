@@ -6,32 +6,33 @@
 #define SIMCRAFT_SPATIFY_INCLUDE_SPATIFY_SPATIAL_HASHABLE_H_
 #include <Spatify/bbox.h>
 namespace spatify {
-template<typename T>
-struct RasterizeArgs {
-  T h, ox, oy, oz;
+
+template <typename T>
+struct SingleCell {
+  Real ox, oy, oz, h;
 };
 
 template<typename T>
-concept RasterizeIterator = requires(T t) {
-  { t.x } -> std::convertible_to<int>;
-  { t.y } -> std::convertible_to<int>;
-  { t.z } -> std::convertible_to<int>;
+concept SHBroadPhasePruningIterator = requires(T t) {
+  { t.xOffset() } -> std::convertible_to<int>;
+  { t.yOffset() } -> std::convertible_to<int>;
+  { t.zOffset() } -> std::convertible_to<int>;
   { t.end() } -> std::convertible_to<bool>;
-  { ++t } -> std::same_as<void>;
+  { ++t } -> std::same_as<T&>;
 };
 
 template<typename T>
-concept SpatialHashablePrimitive = requires(T t, RasterizeArgs<typename T::CoordType> args) {
+concept SpatialHashablePrimitive = requires(T t, SingleCell<typename T::CoordType> cell) {
   { t.bbox() } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
-  { t.rasterize(args) } -> std::convertible_to<typename T::RasterizeIterator>;
+  requires SHBroadPhasePruningIterator<decltype(t.pruningIterator(cell))>;
 };
 
 // this accessor had better be trivially copyable
 template<typename T>
 concept SpatialHashablePrimitiveAccessor = requires(T t, size_t index) {
-  { t.primitive(index) } -> std::same_as<const typename T::PrimitiveType &>;
+  { t[index] } -> std::convertible_to<typename T::value_type &>;
   { t.size() } -> std::convertible_to<size_t>;
-  requires SpatialHashablePrimitive<typename T::PrimitiveType>;
+  requires SpatialHashablePrimitive<typename T::value_type>;
 };
 
 }

@@ -110,7 +110,7 @@ class LBVH {
     uint32_t morton = mortonCode(aabb.centroid());
     return (static_cast<uint64_t>(morton) << 32) | index;
   }
-  int nPrs;
+  int nPrs{};
   std::vector<BBox<Real, 3>> bbox{};
   template <BvhPrimitiveAccessor Accessor>
   void update(Accessor accessor) {
@@ -189,63 +189,12 @@ class LBVH {
                    }
                  });
   }
-//  template<typename Derived>
-//  void runSelfSpatialQuery(const SpatialPairQuery<Derived> &Q) {
-//    std::array<uint64_t, 64> stack{};
-//    int top{};
-//    uint64_t pair = 0;
-//    int a = 0, b = 0;
-//    while (true) {
-//      if (isLeaf(a) && isLeaf(b)) {
-//        Q.query(idx[a], idx[b]);
-//        if (!top) return;
-//        pair = stack[--top];
-//        a = static_cast<int>(pair >> 32);
-//        b = static_cast<int>(pair & 0xFFFFFFFF);
-//        continue;
-//      }
-//      bool go_left = true, go_right = true;
-//      if (!isLeaf(a)) {
-//        if (!bbox[lch[a]].overlap(bbox[b]))
-//          go_left = false;
-//        if (!bbox[rch[a]].overlap(bbox[b]))
-//          go_right = false;
-//        if (go_left && go_right) {
-//          stack[top++] = (static_cast<uint64_t>(rch[a]) << 32) | b;
-//          a = lch[a];
-//        } else if (go_left) a = lch[a];
-//        else if (go_right) a = rch[a];
-//        else {
-//          if (!top) return;
-//          pair = stack[--top];
-//          a = static_cast<int>(pair >> 32);
-//          b = static_cast<int>(pair & 0xFFFFFFFF);
-//        }
-//      } else if (!isLeaf(b)) {
-//        if (!bbox[a].overlap(bbox[lch[b]]))
-//          go_left = false;
-//        if (!bbox[a].overlap(bbox[rch[b]]))
-//          go_right = false;
-//        if (go_left && go_right) {
-//          stack[top++] = (static_cast<uint64_t>(a) << 32) | rch[b];
-//          b = lch[b];
-//        } else if (go_left) b = lch[b];
-//        else if (go_right) b = rch[b];
-//        else {
-//          if (!top) return;
-//          pair = stack[--top];
-//          a = static_cast<int>(pair >> 32);
-//          b = static_cast<int>(pair & 0xFFFFFFFF);
-//        }
-//      }
-//    }
-//  }
- private:
-  std::vector<uint64_t> mortons, mortons_copy;
-  std::vector<int> fa;
-  std::vector<int> lch;
-  std::vector<int> rch;
-  std::vector<int> idx;
+ protected:
+  std::vector<uint64_t> mortons{}, mortons_copy{};
+  std::vector<int> fa{};
+  std::vector<int> lch{};
+  std::vector<int> rch{};
+  std::vector<int> idx{};
   BBox<Real, 3> scene_bound{};
 };
 }

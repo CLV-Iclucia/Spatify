@@ -1,39 +1,27 @@
 //
 // Created by creeper on 5/23/24.
 //
-#include <Spatify/arrays.h>
-#include <Spatify/spatial-query.h>
-#include "Spatify/sparse/sparse-spatial-hash.h"
-#include <Spatify/rasterizers.h>
+#include <Spatify/spatial-hash.h>
+#include <Spatify/sh-pruning.h>
 #include <Spatify/bbox.h>
-#include <Spatify/lbvh.h>
-
+#include <iostream>
 using namespace spatify;
-template<typename T>
-struct Point {
-  using CoordType = T;
-  [[nodiscard]] BBox<T, 3> bbox() const {
-    return BBox<T, 3>(pos, pos);
+
+struct ShEdge {
+  using CoordType = Real;
+  Real x0, y0, z0, x1, y1, z1;
+  [[nodiscard]] BBox<Real, 3> bbox() const {
+    return BBox<Real, 3>{{std::min(x0, x1), std::min(y0, y1), std::min(z0, z1)},
+                         {std::max(x0, x1), std::max(y0, y1), std::max(z0, z1)}};
   }
-  using RasterizeIterator = PointRasterizer<T>;
-  [[nodiscard]] RasterizeIterator rasterize(const RasterizeArgs<T> &args) const {
-    const auto &[h, ox, oy, oz] = args;
-    return RasterizeIterator(static_cast<int>((pos.x - ox) / h),
-                             static_cast<int>((pos.y - oy) / h),
-                             static_cast<int>((pos.z - oz) / h));
+  [[nodiscard]] BBoxIterator<Real> pruningIterator(const SingleCell<Real>& cell) const {
+    return BBoxIterator<Real>{bbox(), cell};
   }
-  Vector<T, 3> pos;
 };
 
-template<typename T>
-struct PointAccessor {
-  using PrimitiveType = Point<T>;
-  [[nodiscard]] const Point<T> &primitive(size_t index) const {
-    return m_points[index];
-  }
-  [[nodiscard]] size_t size() const { return m_points.size(); }
-  std::vector<Point<T>> m_points;
-};
 int main() {
-  SpatialHash<Point<double>> hash;
+  SpatialHash<ShEdge> sh;
+  std::vector<ShEdge> accessor;
+  sh.build(accessor, 1.0);
+  std::cout << "Spatial hash built successfully!" << std::endl;
 }

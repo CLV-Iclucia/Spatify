@@ -14,12 +14,5 @@ target_include_directories(Spatify INTERFACE
 target_include_directories(Spatify INTERFACE ${EXTERNAL_PATH}/glm)
 
 # Add test
-add_executable(collision-test tests/spatial-hash.cc
-        include/Spatify/spatial-hash.h
-        include/Spatify/spatial-hashable.h
-        include/Spatify/octree.h
-        include/Spatify/platform.h
-        tests/octree-test.cc
-        include/Spatify/properties.h
-)
-target_link_libraries(collision-test Spatify)
+add_executable(spatial-hash tests/spatial-hash.cc)
+target_link_libraries(spatial-hash Spatify)
