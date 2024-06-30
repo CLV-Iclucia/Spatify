@@ -14,7 +14,6 @@ template <typename Comp>
 void parallel_sort(int begin, int end, Comp&& cmp) {
   tbb::parallel_sort(begin, end, cmp);
 }
-using tbb::concurrent_vector;
 #else
 template <typename Func>
 void parallel_for(int begin, int end, Func&& func) {

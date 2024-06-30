@@ -9,38 +9,24 @@
 #include <Spatify/platform.h>
 #include <Spatify/spatial-query.h>
 #include <Spatify/parallel.h>
+#include <Spatify/mortons.h>
 #include <concepts>
 #include <atomic>
 namespace spatify {
-inline unsigned int expandBits(unsigned int v) {
-  v = (v * 0x00010001u) & 0xFF0000FFu;
-  v = (v * 0x00000101u) & 0x0F00F00Fu;
-  v = (v * 0x00000011u) & 0xC30C30C3u;
-  v = (v * 0x00000005u) & 0x49249249u;
-  return v;
-}
-
 inline int lcp(uint64_t a, uint64_t b) {
   return countLeadingZeros64Bit(a ^ b);
 }
 
 template <typename T>
-concept BvhPrimitive = requires(T t) {
-  { t.bbox() } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
-};
-
-template <typename T>
 concept BvhPrimitiveAccessor = requires(T t, int idx) {
-  requires BvhPrimitive<typename T::PrimitiveType>;
-  { t(idx) } -> std::convertible_to<typename T::PrimitiveType>;
+  requires std::is_scalar_v<typename T::CoordType>;
+  { t.bbox(idx) } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
   { t.size() } -> std::convertible_to<int>;
 };
 
 template<typename T>
 class LBVH {
  public:
-  LBVH() {}
-  ~LBVH() = default;
   template<SpatialQuery Query>
   void runSpatialQuery(Query&& Q) const {
     std::array<int, 64> stack{};
@@ -100,14 +86,14 @@ class LBVH {
   }
 
   uint32_t mortonCode(const Vector<T, 3> &p) const {
-    unsigned int x = std::max((p(0) - scene_bound.lo.x) / (scene_bound.hi.x - scene_bound.lo.x) * 1024, 0.0);
-    unsigned int y = std::max((p(1) - scene_bound.lo.y) / (scene_bound.hi.y - scene_bound.lo.y) * 1024, 0.0);
-    unsigned int z = std::max((p(2) - scene_bound.lo.z) / (scene_bound.hi.z - scene_bound.lo.z) * 1024, 0.0);
-    return (expandBits(x) << 2) | (expandBits(y) << 1) | expandBits(z);
+    int x = std::max((p(0) - scene_bound.lo.x) / (scene_bound.hi.x - scene_bound.lo.x) * 1024, 0.0);
+    int y = std::max((p(1) - scene_bound.lo.y) / (scene_bound.hi.y - scene_bound.lo.y) * 1024, 0.0);
+    int z = std::max((p(2) - scene_bound.lo.z) / (scene_bound.hi.z - scene_bound.lo.z) * 1024, 0.0);
+    return encodeMorton10bit(x, y, z);
   }
 
   uint64_t encodeBBox(const BBox<T, 3> &aabb, int index) const {
-    uint32_t morton = mortonCode(aabb.centroid());
+    uint32_t morton = mortonCode(aabb.centre());
     return (static_cast<uint64_t>(morton) << 32) | index;
   }
   int nPrs{};
@@ -124,28 +110,28 @@ class LBVH {
     idx.resize(nPrs);
     // first compute the bounding box of the scene in parallel
     for (int i = 0; i < nPrs; i++) {
-      bbox[i] = accessor(i).bbox();
+      bbox[i] = accessor.bbox(i);
       scene_bound.expand(bbox[i]);
     }
-    parallel_for(0,
+    tbb::parallel_for(0,
                  nPrs,
                  [this](int i) {
                    mortons[i] = encodeBBox(bbox[i], i);
                    idx[i] = i;
                  });
     mortons_copy = mortons;
-    parallel_sort(idx.begin(),
+    tbb::parallel_sort(idx.begin(),
                   idx.end(),
                   [this](int a, int b) {
                     return mortons[a] < mortons[b];
                   });
-    parallel_for(0,
+    tbb::parallel_for(0,
                  nPrs,
                  [this](int i) {
                    mortons[i] = mortons_copy[idx[i]];
                  });
     fa[0] = -1;
-    parallel_for(0,
+    tbb::parallel_for(0,
                  nPrs - 1,
                  [this](int i) {
                    int dir = delta(i, i + 1) > delta(i, i - 1) ? 1 : -1;
@@ -168,20 +154,19 @@ class LBVH {
                    else rch[i] = split + 1;
                    fa[rch[i]] = fa[lch[i]] = i;
                  });
-    parallel_for(0,
+    tbb::parallel_for(0,
                  nPrs,
                  [this, &accessor](int i) {
                    int node_idx = nPrs + i - 1;
-                   bbox[node_idx] = accessor(idx[i]).bbox();
+                   bbox[node_idx] = accessor.bbox(idx[i]);
                  });
     std::vector<std::atomic<bool>> processed(nPrs - 1);
-    parallel_for(0,
+    tbb::parallel_for(0,
                  nPrs,
                  [this, &processed](int i) {
                    int node_idx = nPrs + i - 1;
                    while (fa[node_idx] != -1) {
                      int parent = fa[node_idx];
-                     // use atomic flag to let the second thread enter the critical section
                      if (!processed[parent].exchange(true)) return;
                      bbox[parent] = bbox[lch[parent]];
                      bbox[parent].expand(bbox[rch[parent]]);

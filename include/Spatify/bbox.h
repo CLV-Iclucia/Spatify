@@ -37,10 +37,12 @@ struct BBox {
   BBox &expand(const Vector<T, 3> &p) {
     lo = cwiseMin<T, Dim>(lo, p);
     hi = cwiseMax<T, Dim>(hi, p);
+    return *this;
   }
   BBox &expand(const BBox &other) {
     lo = cwiseMin<T, Dim>(lo, other.lo);
     hi = cwiseMax<T, Dim>(hi, other.hi);
+    return *this;
   }
   BBox dilate(T factor) const {
     return {lo - factor, hi + factor};
@@ -51,7 +53,7 @@ struct BBox {
     bool overlap_z = lo.z <= other.hi.z && hi.z >= other.lo.z;
     return overlap_x && overlap_y && overlap_z;
   }
-  bool inside(const Vector<T, Dim> &point) const {
+  bool contains(const Vector<T, Dim> &point) const {
     return (point.array() >= lo.array()).all() &&
         (point.array() <= hi.array()).all();
   }
