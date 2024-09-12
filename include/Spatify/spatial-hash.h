@@ -15,19 +15,18 @@ struct NeighbouringSphere {
   Real x, y, z;
 };
 
-template<SpatialHashablePrimitive Primitive>
+template<typename T>
 class SpatialHash {
  public:
-  using CoordType = typename Primitive::CoordType;
+  using CoordType = T;
 
   template<SpatialHashablePrimitiveAccessor Accessor>
-  requires std::convertible_to<typename Accessor::value_type, Primitive>
   void build(const Accessor &primitives, Real spacing) {
     h = spacing;
     auto num_primitives = primitives.size();
     BBox<CoordType, 3> scene_bound{};
     for (int i = 0; i < num_primitives; i++)
-      scene_bound = scene_bound.merge(primitives[i].bbox());
+      scene_bound = scene_bound.merge(primitives.bbox(i));
     m_origin = scene_bound.lo;
     int x_res = static_cast<int>(std::ceil(scene_bound.extent().x / h));
     int y_res = static_cast<int>(std::ceil(scene_bound.extent().y / h));
@@ -36,11 +35,11 @@ class SpatialHash {
     m_resolution = {x_res, y_res, z_res};
     std::vector<std::pair<uint64_t, int>> grid_id_pairs{};
     for (int i = 0; i < num_primitives; i++) {
-      auto bbox = primitives[i].bbox();
+      auto bbox = primitives.bbox(i);
       auto ox = static_cast<int>(std::floor(bbox.lo.x / h));
       auto oy = static_cast<int>(std::floor(bbox.lo.y / h));
       auto oz = static_cast<int>(std::floor(bbox.lo.z / h));
-      for (auto it = primitives[i].pruningIterator({0.0, 0.0, 0.0, h}); !it.end(); ++it) {
+      for (auto it = primitives.pruningIterator(i, {0.0, 0.0, 0.0, h}); !it.end(); ++it) {
         auto x = it.xOffset() + ox;
         auto y = it.yOffset() + oy;
         auto z = it.zOffset() + oz;
@@ -85,7 +84,25 @@ class SpatialHash {
     }
   }
   template<typename Func>
-  void forPrimitivesInCell(int i, int j, int k, Func &&func) {
+  void forNeighbouringPrimitives(const BBox<Real, 3>& querying_box, Func &&func) {
+    auto x_min = static_cast<int>(std::floor(querying_box.lo.x / h));
+    auto x_max = static_cast<int>(std::ceil(querying_box.hi.x / h));
+    auto y_min = static_cast<int>(std::floor(querying_box.lo.y / h));
+    auto y_max = static_cast<int>(std::ceil(querying_box.hi.y / h));
+    auto z_min = static_cast<int>(std::floor(querying_box.lo.z / h));
+    auto z_max = static_cast<int>(std::ceil(querying_box.hi.z / h));
+    for (int i = x_min; i <= x_max; i++) {
+      for (int j = y_min; j <= y_max; j++) {
+        for (int k = z_min; k <= z_max; k++) {
+          auto [begin, end] = m_ranges[index(i, j, k)];
+          for (int idx = begin; idx < end; idx++)
+            func(m_primitive_indices[idx]);
+        }
+      }
+    }
+  }
+  template<typename Func>
+  void forProbablePrimitivesInCell(int i, int j, int k, Func &&func) {
     auto [begin, end] = m_ranges[index(i, j, k)];
     for (int idx = begin; idx < end; idx++)
       func(m_primitive_indices[idx]);

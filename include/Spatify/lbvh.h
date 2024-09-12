@@ -6,12 +6,12 @@
 #define SIMCRAFT_SPATIFY_INCLUDE_SPATIFY_LBVH_H_
 #include <array>
 #include <vector>
+#include <concepts>
+#include <atomic>
 #include <Spatify/platform.h>
 #include <Spatify/spatial-query.h>
 #include <Spatify/parallel.h>
 #include <Spatify/mortons.h>
-#include <concepts>
-#include <atomic>
 namespace spatify {
 inline int lcp(uint64_t a, uint64_t b) {
   return countLeadingZeros64Bit(a ^ b);
@@ -27,18 +27,18 @@ concept BvhPrimitiveAccessor = requires(T t, int idx) {
 template<typename T>
 class LBVH {
  public:
-  template<SpatialQuery Query>
-  void runSpatialQuery(Query&& Q) const {
+  template<SpatialQuery Query, typename BBoxQuery>
+  void runSpatialQuery(Query&& query, BBoxQuery&& bbox_query) const {
     std::array<int, 64> stack{};
     int top{};
     int nodeIdx = 0;
-    if (!Q.query(bbox[nodeIdx]))
+    if (!bbox_query(bbox[nodeIdx]))
       return;
     bool hit = false;
     while (true) {
       if (isLeaf(nodeIdx)) {
         int pr_id = idx[nodeIdx - nPrs + 1];
-        bool flag = Q.query(pr_id);
+        bool flag = query(pr_id);
         hit |= flag;
         if (!top) return;
         nodeIdx = stack[--top];
@@ -46,8 +46,8 @@ class LBVH {
       }
       int lc = lch[nodeIdx];
       int rc = rch[nodeIdx];
-      bool intl = Q.query(bbox[lc]);
-      bool intr = Q.query(bbox[rc]);
+      bool intl = bbox_query(bbox[lc]);
+      bool intr = bbox_query(bbox[rc]);
       if (!intl && !intr) {
         if (!top) return;
         nodeIdx = stack[--top];
@@ -61,9 +61,17 @@ class LBVH {
       }
     }
   }
+
+  [[nodiscard]] int primitiveIndex(int nodeIdx) const {
+    assert(nodeIdx >= nPrs - 1);
+    assert(nodeIdx < 2 * nPrs - 1);
+    return idx[nodeIdx - nPrs + 1];
+  }
+
   [[nodiscard]] bool isLeaf(int index) const {
     return index >= nPrs - 1;
   }
+
   [[nodiscard]] int findSplit(int l, int r) const {
     if (mortons[l] == mortons[r])
       return (l + r) >> 1;
@@ -80,15 +88,16 @@ class LBVH {
     } while (step > 1);
     return search;
   }
+
   [[nodiscard]] int delta(int i, int j) const {
     if (j < 0 || j > nPrs - 1) return -1;
     return lcp(mortons[i], mortons[j]);
   }
 
   uint32_t mortonCode(const Vector<T, 3> &p) const {
-    int x = std::max((p(0) - scene_bound.lo.x) / (scene_bound.hi.x - scene_bound.lo.x) * 1024, 0.0);
-    int y = std::max((p(1) - scene_bound.lo.y) / (scene_bound.hi.y - scene_bound.lo.y) * 1024, 0.0);
-    int z = std::max((p(2) - scene_bound.lo.z) / (scene_bound.hi.z - scene_bound.lo.z) * 1024, 0.0);
+    int x = std::max((p.x - sceneBound.lo.x) / (sceneBound.hi.x - sceneBound.lo.x) * 1024, 0.0);
+    int y = std::max((p.y - sceneBound.lo.y) / (sceneBound.hi.y - sceneBound.lo.y) * 1024, 0.0);
+    int z = std::max((p.z - sceneBound.lo.z) / (sceneBound.hi.z - sceneBound.lo.z) * 1024, 0.0);
     return encodeMorton10bit(x, y, z);
   }
 
@@ -102,16 +111,15 @@ class LBVH {
   void update(Accessor accessor) {
     nPrs = accessor.size();
     mortons.resize(2 * nPrs - 1);
-    mortons_copy.resize(2 * nPrs - 1);
+    mortonsCopy.resize(2 * nPrs - 1);
     bbox.resize(2 * nPrs - 1);
     fa.resize(2 * nPrs - 1);
     lch.resize(nPrs - 1);
     rch.resize(nPrs - 1);
     idx.resize(nPrs);
-    // first compute the bounding box of the scene in parallel
     for (int i = 0; i < nPrs; i++) {
       bbox[i] = accessor.bbox(i);
-      scene_bound.expand(bbox[i]);
+      sceneBound.expand(bbox[i]);
     }
     tbb::parallel_for(0,
                  nPrs,
@@ -119,7 +127,7 @@ class LBVH {
                    mortons[i] = encodeBBox(bbox[i], i);
                    idx[i] = i;
                  });
-    mortons_copy = mortons;
+    mortonsCopy = mortons;
     tbb::parallel_sort(idx.begin(),
                   idx.end(),
                   [this](int a, int b) {
@@ -128,7 +136,7 @@ class LBVH {
     tbb::parallel_for(0,
                  nPrs,
                  [this](int i) {
-                   mortons[i] = mortons_copy[idx[i]];
+                   mortons[i] = mortonsCopy[idx[i]];
                  });
     fa[0] = -1;
     tbb::parallel_for(0,
@@ -175,12 +183,12 @@ class LBVH {
                  });
   }
  protected:
-  std::vector<uint64_t> mortons{}, mortons_copy{};
+  std::vector<uint64_t> mortons{}, mortonsCopy{};
   std::vector<int> fa{};
   std::vector<int> lch{};
   std::vector<int> rch{};
   std::vector<int> idx{};
-  BBox<Real, 3> scene_bound{};
+  BBox<Real, 3> sceneBound{};
 };
 }
 #endif //SIMCRAFT_SPATIFY_INCLUDE_SPATIFY_LBVH_H_

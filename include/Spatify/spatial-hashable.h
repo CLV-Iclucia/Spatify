@@ -7,7 +7,7 @@
 #include <Spatify/bbox.h>
 namespace spatify {
 
-template <typename T>
+template<typename T>
 struct SingleCell {
   Real ox, oy, oz, h;
 };
@@ -18,21 +18,15 @@ concept SHBroadPhasePruningIterator = requires(T t) {
   { t.yOffset() } -> std::convertible_to<int>;
   { t.zOffset() } -> std::convertible_to<int>;
   { t.end() } -> std::convertible_to<bool>;
-  { ++t } -> std::same_as<T&>;
-};
-
-template<typename T>
-concept SpatialHashablePrimitive = requires(T t, SingleCell<typename T::CoordType> cell) {
-  { t.bbox() } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
-  requires SHBroadPhasePruningIterator<decltype(t.pruningIterator(cell))>;
+  { ++t } -> std::same_as<T &>;
 };
 
 // this accessor had better be trivially copyable
 template<typename T>
-concept SpatialHashablePrimitiveAccessor = requires(T t, size_t index) {
-  { t[index] } -> std::convertible_to<typename T::value_type &>;
+concept SpatialHashablePrimitiveAccessor = requires(T t, size_t index, const SingleCell<typename T::CoordType> &cell) {
+  { t.bbox(index) } -> std::convertible_to<BBox<typename T::CoordType, 3>>;
+  requires SHBroadPhasePruningIterator<decltype(t.pruningIterator(index, cell))>;
   { t.size() } -> std::convertible_to<size_t>;
-  requires SpatialHashablePrimitive<typename T::value_type>;
 };
 
 }

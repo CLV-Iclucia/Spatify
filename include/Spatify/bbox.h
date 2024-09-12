@@ -24,6 +24,7 @@ struct BBox {
   Vector<T, Dim> lo{std::numeric_limits<T>::max()};
   Vector<T, Dim> hi{std::numeric_limits<T>::min()};
   BBox() = default;
+  explicit BBox(const Vector<T, Dim> &p) : lo(p), hi(p) {}
   BBox(const Vector<T, Dim> &lo, const Vector<T, Dim> &hi) : lo(lo), hi(hi) {
   }
   BBox& operator=(const BBox &other) {
@@ -42,6 +43,11 @@ struct BBox {
   BBox &expand(const BBox &other) {
     lo = cwiseMin<T, Dim>(lo, other.lo);
     hi = cwiseMax<T, Dim>(hi, other.hi);
+    return *this;
+  }
+  BBox& dilate(T factor) {
+    lo -= factor;
+    hi += factor;
     return *this;
   }
   BBox dilate(T factor) const {

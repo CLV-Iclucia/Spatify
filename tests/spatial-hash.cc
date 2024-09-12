@@ -33,7 +33,7 @@ int main() {
     for (int j = 0; j < resolution.y; j++)
       for (int k = 0; k < resolution.z; k++) {
         std::cout << std::format("Cell ({}, {}, {}): ", i, j, k);
-        sh.forPrimitivesInCell(i, j, k, [&](int idx) {
+        sh.forProbablePrimitivesInCell(i, j, k, [&](int idx) {
           std::cout << idx << " ";
         });
         std::cout << "\n";
