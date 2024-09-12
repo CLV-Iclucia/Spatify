@@ -9,12 +9,12 @@ Now it includes:
 - 2D and 3D arrays with optional paddings
 - 2D and 3D grids, with different configurations that can be customized by template arguments
 - Neighbour searching toolkits
+- Linear BVH running on CPU, using tbb for parallel execution
 
 To be added:
 - Signed distance field (Now developing in other repos)
 - Particle system
 - Reconstruction toolkits (Also in other repos)
-- BVH (Also in other repos)
 - ...
 
 ## How to use it
