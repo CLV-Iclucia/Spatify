@@ -13,6 +13,7 @@
 #include <Spatify/parallel.h>
 #include <Spatify/mortons.h>
 namespace spatify {
+
 inline int lcp(uint64_t a, uint64_t b) {
   return countLeadingZeros64Bit(a ^ b);
 }
