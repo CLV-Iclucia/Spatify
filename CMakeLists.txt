@@ -2,6 +2,7 @@ project(Spatify LANGUAGES CXX)
 add_library(Spatify INTERFACE)
 # if can find tbb, link tbb to Spatify
 option(SPATIFY_ENABLE_GUI "Enable GUI support" OFF)
+option(SPATIFY_BUILD_CUDA "Build CUDA Spatify toolkits" OFF)
 find_package(TBB)
 if(TBB_FOUND)
     target_link_libraries(Spatify INTERFACE TBB::tbb)
